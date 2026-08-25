@@ -1,0 +1,11 @@
+# Optionele Fase 4-providers naast Claude (die al in requirements.txt zit).
+# Deze twee pakketten zijn best-effort geïntegreerd (zie
+# app/citation/providers.py) — geen geverifieerde SDK-referentie voor dit
+# project beschikbaar geweest, in tegenstelling tot de Anthropic-SDK.
+# Installeer alleen als je ChatGPT/Perplexity en/of Gemini als provider wilt
+# meenemen in de C9-citatiecheck (GEO_DASHBOARD_CITATION_PROVIDERS):
+#
+#   pip install -r requirements-citation-extra.txt
+#
+openai>=1.0,<2.0
+google-genai>=0.3,<1.0

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Promptsets — GEO Scan Dashboard{% endblock %}
+{% block content %}
+  <h1 class="page-title">Promptsets (Fase 4 — Share of Model)</h1>
+  <p class="page-sub">
+    Per sector een set realistische vragen die een consument aan een AI-assistent zou stellen. Deze prompts
+    worden maandelijks (of handmatig via "Citatiecheck nu" op een organisatiepagina) tegen de ingeschakelde
+    providers uitgevoerd om te meten of/hoe een merk wordt genoemd (C9).
+  </p>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Prompt toevoegen</h3>
+    <form method="post" action="/promptsets/new">
+      <div class="field">
+        <label for="sector">Sector / branche</label>
+        <input type="text" id="sector" name="sector" placeholder="bv. Detailhandel" required>
+      </div>
+      <div class="field">
+        <label for="prompt_text">Prompt</label>
+        <textarea id="prompt_text" name="prompt_text" placeholder="bv. Welke winkelketens verkopen de beste wandelschoenen?" required></textarea>
+      </div>
+      <button class="btn" type="submit">Toevoegen</button>
+    </form>
+  </div>
+
+  {% if by_sector %}
+    {% for sector, prompts in by_sector.items() %}
+    <div class="card">
+      <h3 style="margin-top:0;">{{ sector }}</h3>
+      <table class="data-table">
+        <thead><tr><th>Prompt</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for p in prompts %}
+          <tr>
+            <td>{{ p.prompt_text }}</td>
+            <td>{% if p.is_active %}<span class="pill strong">Actief</span>{% else %}<span class="pill invisible">Inactief</span>{% endif %}</td>
+            <td>
+              <form class="inline" method="post" action="/promptsets/{{ p.id }}/toggle">
+                <button class="btn small secondary" type="submit">{% if p.is_active %}Deactiveren{% else %}Activeren{% endif %}</button>
+              </form>
+              <form class="inline" method="post" action="/promptsets/{{ p.id }}/delete" onsubmit="return confirm('Prompt verwijderen?');">
+                <button class="btn small danger" type="submit">Verwijderen</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card"><div class="empty-state">Nog geen prompts toegevoegd.</div></div>
+  {% endif %}
+{% endblock %}

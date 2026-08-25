@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Citaties — {{ organization.name }}{% endblock %}
+{% block content %}
+  <h1 class="page-title">{{ organization.name }} — Share of Model (C9)</h1>
+  <p class="page-sub"><a href="/organizations/{{ organization.id }}">← Terug naar organisatie</a></p>
+
+  {% if not has_active_prompts %}
+  <div class="card" style="border-color:#e0a020; background:#fff8e8;">
+    Geen actieve prompts voor sector "{{ organization.sector or '(geen sector ingesteld)' }}". Voeg prompts toe via
+    <a href="/promptsets">Promptsets</a> om C9 te kunnen meten.
+  </div>
+  {% endif %}
+
+  <div style="margin-bottom:16px;">
+    <form class="inline" method="post" action="/organizations/{{ organization.id }}/citations/run">
+      <button class="btn" type="submit" {% if not has_active_prompts %}disabled{% endif %}>Citatiecheck nu</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Huidige C9-score</h3>
+    {% if c9 %}
+      <p><strong>{{ c9.score }}/10</strong> — {{ c9.rationale }}</p>
+    {% else %}
+      <p class="page-sub">Nog geen citatie-data (laatste 90 dagen). Draai een citatiecheck om C9 te vullen.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Kostenbewaking (deze kalendermaand)</h3>
+    <p>
+      Besteed: <strong>${{ "%.4f"|format(spent_this_month) }}</strong>
+      {% if organization.citation_budget_usd_per_month is not none %}
+        / limiet ${{ "%.2f"|format(organization.citation_budget_usd_per_month) }}
+        {% if budget_remaining is not none and budget_remaining <= 0 %}
+          <span class="pill invisible">Limiet bereikt</span>
+        {% endif %}
+      {% else %}
+        (geen limiet ingesteld)
+      {% endif %}
+    </p>
+    <p class="page-sub">Stel de limiet in via "Bewerken" op de organisatiepagina.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Recente citatie-runs</h3>
+    {% if runs %}
+    <table class="data-table">
+      <thead><tr><th>Datum</th><th>Provider</th><th>Prompt</th><th>Resultaat</th><th>Sentiment</th><th>Kosten</th></tr></thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td>{{ run.run_at.strftime("%d-%m-%Y %H:%M") }}</td>
+          <td>{{ run.provider }}</td>
+          <td>{{ prompts_by_id[run.prompt_id].prompt_text if run.prompt_id in prompts_by_id else "—" }}</td>
+          <td>
+            {% if run.citation_type == "cited_with_link" %}<span class="pill leader">Geciteerd met link</span>
+            {% elif run.citation_type == "mentioned" %}<span class="pill ok">Genoemd</span>
+            {% else %}<span class="pill invisible">Niet genoemd</span>{% endif %}
+          </td>
+          <td>{{ run.sentiment or "—" }}</td>
+          <td>${{ "%.4f"|format(run.cost_usd or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Nog geen citatie-runs.</div>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
-from app.routers import dashboard, organizations, scans
+from app.routers import citations, dashboard, organizations, scans
 from app.scheduler import create_scheduler
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -34,6 +34,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(dashboard.router)
 app.include_router(organizations.router)
 app.include_router(scans.router)
+app.include_router(citations.router)
 
 
 @app.get("/")

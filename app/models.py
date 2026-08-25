@@ -47,6 +47,11 @@ class Organization(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
+    # Fase 4 (Share of Model) kostenlimiet: harde bovengrens op de som van
+    # CitationRun.cost_usd binnen de lopende kalendermaand voor deze
+    # organisatie. None = geen limiet (bewust opt-in, niet de default).
+    citation_budget_usd_per_month: float | None = Field(default=5.0)
+
     scans: List["Scan"] = Relationship(back_populates="organization")
 
 
@@ -86,7 +91,7 @@ class ScanCriterionScore(SQLModel, table=True):
 
 
 class CitationPrompt(SQLModel, table=True):
-    """Fase 4 (Share of Model) — schema alvast klaar, runner nog niet gebouwd."""
+    """Fase 4 (Share of Model) — beheerbare promptset per sector."""
 
     id: int | None = Field(default=None, primary_key=True)
     sector: str
@@ -95,7 +100,7 @@ class CitationPrompt(SQLModel, table=True):
 
 
 class CitationRun(SQLModel, table=True):
-    """Fase 4 (Share of Model) — schema alvast klaar, runner nog niet gebouwd."""
+    """Fase 4 (Share of Model) — resultaat van één (prompt × provider)-combinatie."""
 
     id: int | None = Field(default=None, primary_key=True)
     organization_id: int = Field(foreign_key="organization.id", index=True)

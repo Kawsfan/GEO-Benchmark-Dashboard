@@ -8,17 +8,27 @@ het oorspronkelijke `geo_report_generator.py`-script.
 Zie [`ARCHITECTURE.md`](./ARCHITECTURE.md) voor de MVP-scope, het
 datamodel en de fasering van de automatisering (Fase 1 t/m 4).
 
-## Wat werkt er nu (Fase 1 + Fase 2 + Fase 3)
+## Wat werkt er nu (Fase 1 t/m 4 — alle 10 criteria op zijn minst deels geautomatiseerd)
 
-- Organisaties beheren (toevoegen/bewerken/verwijderen).
+- Organisaties beheren (toevoegen/bewerken/verwijderen), incl. een
+  maandelijkse kostenlimiet voor Fase 4-citatiechecks.
 - "Scan nu" per organisatie: voert automatisch de Fase 0 knock-out check,
   C1 (structured data), C2 (chunkability), het freshness-deel van C10, C6
   (Wikidata) en C8 (multimodaal/social-links) uit tegen de live pagina, laat
   C3/C4/C5 (Answerability, BLUF, Fact density) en C7 (externe vermeldingen,
-  via web-search) door Claude beoordelen, en combineert dat met de laatst
-  ingevulde handmatige scores voor de overige criteria (C9).
-- Maandelijkse automatische scan van alle actieve organisaties
-  (in-process via APScheduler, of extern via `scripts/run_monthly_scan.py`).
+  via web-search) door Claude beoordelen, leest C9 (Share of Model) uit de
+  laatste citatie-data, en combineert dat met de laatst ingevulde handmatige
+  scores voor wat nog ontbreekt.
+- **Promptsets** (`/promptsets`): per sector een beheerbare set vragen voor
+  de Fase 4-citatiecheck.
+- **Citatiecheck** per organisatie (`/organizations/{id}/citations`):
+  handmatig te starten ("Citatiecheck nu") of maandelijks automatisch; stuurt
+  de promptset van de sector naar de ingeschakelde AI-providers (default:
+  alleen Claude) en meet of/hoe het merk wordt genoemd — met een
+  per-organisatie kostenlimiet.
+- Maandelijkse automatische scan + citatiecheck van alle actieve
+  organisaties (in-process via APScheduler, of extern via
+  `scripts/run_monthly_scan.py` / `scripts/run_monthly_citation_check.py`).
 - Dashboard-overzicht met score, classificatie, trendlijn en vergelijking
   tussen organisaties.
 - Scan-detailpagina: score-breakdown, GAP-analyse, top-3-prioriteiten —
@@ -29,19 +39,29 @@ datamodel en de fasering van de automatisering (Fase 1 t/m 4).
   van díe scan.
 - PDF-export per scan.
 
-Fase 4 (Share of Model / citation tracking, C9) is nog niet geautomatiseerd
-— zie ARCHITECTURE.md voor waarom en wat er al aan datamodel klaarstaat.
+### Claude-credentials (Fase 2, C7, Fase 4)
 
-### Claude-credentials (Fase 2 + C7)
+De LLM-rubric (C3-C5), de C7-check en de Fase 4-citatiecheck hebben toegang
+tot de Claude API nodig: zet `ANTHROPIC_API_KEY`, of log in met
+`ant auth login`. Zonder credentials degradeert elke scan/citatiecheck
+gracieus (die criteria blijven op hun laatst bekende waarde staan, niets
+mislukt) — C6 (Wikidata) en C8 (multimodaal-heuristiek) hebben geen Claude
+nodig en blijven gewoon werken.
 
-De LLM-rubric (C3-C5) en de C7-check hebben toegang tot de Claude API nodig:
-zet `ANTHROPIC_API_KEY`, of log in met `ant auth login`. Zonder credentials
-degradeert elke scan gracieus (die criteria blijven op hun laatst bekende
-waarde staan, de scan mislukt niet) — C6 (Wikidata) en C8
-(multimodaal-heuristiek) hebben geen Claude nodig en blijven gewoon werken.
-Zie ARCHITECTURE.md § 4 voor kostenbeheersing (`GEO_DASHBOARD_LLM_MODEL`,
-`GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT`, `GEO_DASHBOARD_DISABLE_EXTERNAL_MENTIONS`,
-`GEO_DASHBOARD_DISABLE_PHASE3`).
+ChatGPT/Perplexity/Gemini als extra Fase 4-providers zijn optioneel: zet
+`GEO_DASHBOARD_CITATION_PROVIDERS=claude,chatgpt,perplexity,gemini`, de
+bijbehorende `OPENAI_API_KEY`/`PERPLEXITY_API_KEY`/`GEMINI_API_KEY`, en
+installeer `pip install -r requirements-citation-extra.txt`. Zie
+`app/citation/providers.py` voor het vertrouwensniveau per provider (Claude
+volledig geverifieerd tegen de officiële SDK; de andere drie structureel
+geverifieerd tegen de geïnstalleerde SDK's, maar controleer modelnamen/
+pricing zelf voor productiegebruik).
+
+Zie ARCHITECTURE.md § 4 voor de volledige kostenbeheersing
+(`GEO_DASHBOARD_LLM_MODEL`, `GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT`,
+`GEO_DASHBOARD_DISABLE_EXTERNAL_MENTIONS`, `GEO_DASHBOARD_DISABLE_PHASE3`,
+`GEO_DASHBOARD_DISABLE_CITATION_TRACKING`, en de per-organisatie
+`citation_budget_usd_per_month`, default $5/maand).
 
 ## Installatie
 
@@ -49,6 +69,8 @@ Zie ARCHITECTURE.md § 4 voor kostenbeheersing (`GEO_DASHBOARD_LLM_MODEL`,
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
+# Optioneel, voor ChatGPT/Perplexity/Gemini als Fase 4-providers naast Claude:
+# pip install -r requirements-citation-extra.txt
 ```
 
 WeasyPrint (PDF-export) heeft op sommige systemen extra systeembibliotheken

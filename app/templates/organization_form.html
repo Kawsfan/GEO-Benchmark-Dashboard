@@ -16,6 +16,13 @@
       <div class="field">
         <label for="sector">Sector / branche</label>
         <input type="text" id="sector" name="sector" value="{{ organization.sector if organization else '' }}">
+        <p class="page-sub" style="margin:6px 0 0;">Bepaalt welke promptset (Fase 4 — Share of Model) voor deze organisatie gebruikt wordt.</p>
+      </div>
+      <div class="field">
+        <label for="citation_budget_usd_per_month">Maandelijkse kostenlimiet citatie-checks (USD)</label>
+        <input type="number" id="citation_budget_usd_per_month" name="citation_budget_usd_per_month" step="0.5" min="0"
+               value="{{ organization.citation_budget_usd_per_month if organization is not none and organization.citation_budget_usd_per_month is not none else 5.0 }}">
+        <p class="page-sub" style="margin:6px 0 0;">Leeg laten = geen limiet. Fase 4-citatiechecks stoppen zodra deze maand dit bedrag is bereikt.</p>
       </div>
       {% if organization %}
       <div class="field checkbox">

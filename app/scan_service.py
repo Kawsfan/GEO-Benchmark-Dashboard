@@ -10,6 +10,7 @@ from sqlmodel import Session
 from app.automation.llm_rubric import assess_llm_criteria
 from app.automation.phase3_runner import run_phase3_automation
 from app.automation.runner import run_phase1_automation
+from app.citation.scoring import compute_c9_score
 from app.models import Organization, Scan, ScanCriterionScore, ScanStatus, ScoreSource, TriggerType, utcnow
 from app.scoring import CRITERIA, SOURCE_LLM_ESTIMATE, SOURCE_MANUAL, classify, compute_score
 
@@ -22,6 +23,7 @@ def run_scan(
     manual_rationales: dict[str, str] | None = None,
     run_llm_assessment: bool = True,
     run_phase3: bool = True,
+    include_c9: bool = True,
 ) -> Scan:
     """Voer een scan uit voor `organization`.
 
@@ -31,9 +33,13 @@ def run_scan(
     LLM-call per pagina beoordeeld (zie `app.automation.llm_rubric`). Fase
     3-criteria (c6 Wikidata, c7 externe vermeldingen via web-search, c8
     multimodaal/social) worden — als `run_phase3` True is — via
-    `app.automation.phase3_runner` beoordeeld. Lukt een van deze checks niet
-    (geen credentials, rate limit, netwerkfout, geen match) dan degradeert de
-    scan gracieus naar de bestaande `manual_scores`/0-fallback voor dát
+    `app.automation.phase3_runner` beoordeeld. C9 (Share of Model) wordt —
+    als `include_c9` True is — puur uit al opgeslagen `CitationRun`-data
+    gelezen (`app.citation.scoring.compute_c9_score`); dit start GEEN nieuwe
+    provider-calls (die lopen los, via `app.citation.runner`, zie
+    ARCHITECTURE.md). Lukt een van deze checks niet (geen credentials, rate
+    limit, netwerkfout, geen match, of nog geen citatie-data) dan degradeert
+    de scan gracieus naar de bestaande `manual_scores`/0-fallback voor dát
     criterium — nooit een mislukte scan. Voor de resterende criteria wordt
     `manual_scores` gebruikt indien opgegeven; anders blijft de score 0
     (zichtbaar als "handmatig ingevoerd, nog niet ingevuld" in de UI).
@@ -68,6 +74,13 @@ def run_scan(
         sources.update(phase3.criterion_sources)
         rationales.update(phase3.criterion_rationales)
         automation_errors.extend(phase3.errors.values())
+
+    if include_c9 and organization.id is not None:
+        c9 = compute_c9_score(session, organization.id)
+        if c9 is not None:
+            merged_scores["c9_share_of_model"] = c9.score
+            sources["c9_share_of_model"] = SOURCE_LLM_ESTIMATE
+            rationales["c9_share_of_model"] = c9.rationale
 
     for code in CRITERIA:
         if code in merged_scores:

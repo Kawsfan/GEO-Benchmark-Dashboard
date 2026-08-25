@@ -31,12 +31,28 @@ def create_organization(
     name: str = Form(...),
     domain: str = Form(...),
     sector: str = Form(""),
+    citation_budget_usd_per_month: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    org = Organization(name=name.strip(), domain=domain.strip(), sector=sector.strip() or None)
+    org = Organization(
+        name=name.strip(),
+        domain=domain.strip(),
+        sector=sector.strip() or None,
+        citation_budget_usd_per_month=_parse_budget(citation_budget_usd_per_month),
+    )
     session.add(org)
     session.commit()
     return RedirectResponse(url="/organizations", status_code=303)
+
+
+def _parse_budget(raw: str) -> float | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return None
 
 
 @router.get("/{org_id}")
@@ -71,6 +87,7 @@ def update_organization(
     domain: str = Form(...),
     sector: str = Form(""),
     is_active: bool | None = Form(None),
+    citation_budget_usd_per_month: str = Form(""),
     session: Session = Depends(get_session),
 ):
     from app.models import utcnow
@@ -81,6 +98,7 @@ def update_organization(
         org.domain = domain.strip()
         org.sector = sector.strip() or None
         org.is_active = bool(is_active)
+        org.citation_budget_usd_per_month = _parse_budget(citation_budget_usd_per_month)
         org.updated_at = utcnow()
         session.add(org)
         session.commit()

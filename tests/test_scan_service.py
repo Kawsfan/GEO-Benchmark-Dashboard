@@ -230,3 +230,77 @@ def test_update_manual_scores_never_overwrites_automated(session, monkeypatch):
     codes = {cs.code: cs for cs in scan.criterion_scores}
     assert codes["c1_structured_data"].raw_score == 7.0  # ongewijzigd
     assert codes["c1_structured_data"].source == ScoreSource.automated
+
+
+def test_run_scan_reads_c9_from_existing_citation_runs(session, monkeypatch):
+    from datetime import datetime, timezone
+
+    from app.models import CitationRun
+
+    monkeypatch.setattr(scan_service, "run_phase1_automation", lambda domain: _fake_automation())
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl", sector="Detailhandel")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    session.add_all(
+        [
+            CitationRun(
+                organization_id=org.id, prompt_id=1, provider="claude",
+                run_at=datetime.now(timezone.utc), cited=True, citation_type="cited_with_link",
+            ),
+            CitationRun(
+                organization_id=org.id, prompt_id=2, provider="claude",
+                run_at=datetime.now(timezone.utc), cited=False, citation_type="not_mentioned",
+            ),
+        ]
+    )
+    session.commit()
+
+    # Handmatig meegegeven c9-waarde mag niet winnen van bestaande citatie-data.
+    scan = scan_service.run_scan(session, org, manual_scores={"c9_share_of_model": 1.0})
+
+    codes = {cs.code: cs for cs in scan.criterion_scores}
+    assert codes["c9_share_of_model"].source == ScoreSource.llm_estimate
+    assert codes["c9_share_of_model"].raw_score == 5.0  # (1.0 + 0) / 2 * 10
+    assert "citatie-checks" in codes["c9_share_of_model"].rationale
+
+
+def test_run_scan_c9_falls_back_without_citation_data(session, monkeypatch):
+    monkeypatch.setattr(scan_service, "run_phase1_automation", lambda domain: _fake_automation())
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    scan = scan_service.run_scan(session, org, manual_scores={"c9_share_of_model": 3.0})
+
+    codes = {cs.code: cs for cs in scan.criterion_scores}
+    assert codes["c9_share_of_model"].source == ScoreSource.manual
+    assert codes["c9_share_of_model"].raw_score == 3.0
+
+
+def test_run_scan_skips_c9_when_include_c9_false(session, monkeypatch):
+    from datetime import datetime, timezone
+
+    from app.models import CitationRun
+
+    monkeypatch.setattr(scan_service, "run_phase1_automation", lambda domain: _fake_automation())
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    session.add(
+        CitationRun(
+            organization_id=org.id, prompt_id=1, provider="claude",
+            run_at=datetime.now(timezone.utc), cited=True, citation_type="cited_with_link",
+        )
+    )
+    session.commit()
+
+    scan = scan_service.run_scan(session, org, include_c9=False, manual_scores={"c9_share_of_model": 2.0})
+
+    codes = {cs.code: cs for cs in scan.criterion_scores}
+    assert codes["c9_share_of_model"].source == ScoreSource.manual
+    assert codes["c9_share_of_model"].raw_score == 2.0
