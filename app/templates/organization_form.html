@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{% if organization %}Organisatie bewerken{% else %}Organisatie toevoegen{% endif %} — GEO Scan Dashboard{% endblock %}
+{% block content %}
+  <h1 class="page-title">{% if organization %}Organisatie bewerken{% else %}Organisatie toevoegen{% endif %}</h1>
+
+  <div class="card">
+    <form method="post" action="{% if organization %}/organizations/{{ organization.id }}/edit{% else %}/organizations/new{% endif %}">
+      <div class="field">
+        <label for="name">Naam</label>
+        <input type="text" id="name" name="name" value="{{ organization.name if organization else '' }}" required>
+      </div>
+      <div class="field">
+        <label for="domain">Domein</label>
+        <input type="text" id="domain" name="domain" placeholder="voorbeeld.nl" value="{{ organization.domain if organization else '' }}" required>
+      </div>
+      <div class="field">
+        <label for="sector">Sector / branche</label>
+        <input type="text" id="sector" name="sector" value="{{ organization.sector if organization else '' }}">
+      </div>
+      {% if organization %}
+      <div class="field checkbox">
+        <input type="checkbox" id="is_active" name="is_active" value="true" {% if organization.is_active %}checked{% endif %}>
+        <label for="is_active" style="margin:0;">Actief (meegenomen in maandelijkse automatische scan)</label>
+      </div>
+      {% endif %}
+      <button class="btn" type="submit">Opslaan</button>
+      <a class="btn secondary" href="/organizations">Annuleren</a>
+    </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Organisaties — GEO Scan Dashboard{% endblock %}
+{% block content %}
+  <h1 class="page-title">Organisaties</h1>
+  <p class="page-sub">Domeinen/merken beheren voor de GEO-benchmark.</p>
+
+  <div style="margin-bottom:16px;">
+    <a class="btn" href="/organizations/new">+ Organisatie toevoegen</a>
+  </div>
+
+  <div class="card">
+    {% if organizations %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Naam</th><th>Domein</th><th>Sector</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for org in organizations %}
+        <tr>
+          <td><a href="/organizations/{{ org.id }}">{{ org.name }}</a></td>
+          <td>{{ org.domain }}</td>
+          <td>{{ org.sector or "—" }}</td>
+          <td>{% if org.is_active %}<span class="pill strong">Actief</span>{% else %}<span class="pill invisible">Inactief</span>{% endif %}</td>
+          <td>
+            <a class="btn small secondary" href="/organizations/{{ org.id }}/edit">Bewerken</a>
+            <form class="inline" method="post" action="/organizations/{{ org.id }}/delete" onsubmit="return confirm('Organisatie {{ org.name }} en alle scan-historie verwijderen?');">
+              <button class="btn small danger" type="submit">Verwijderen</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Nog geen organisaties toegevoegd.</div>
+    {% endif %}
+  </div>
+{% endblock %}

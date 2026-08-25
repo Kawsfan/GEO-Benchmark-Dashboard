@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ organization.name }} — GEO Scan Dashboard{% endblock %}
+{% block content %}
+  <h1 class="page-title">{{ organization.name }}</h1>
+  <p class="page-sub">{{ organization.domain }}{% if organization.sector %} · {{ organization.sector }}{% endif %}</p>
+
+  <div style="margin-bottom:16px;">
+    <form class="inline" method="post" action="/organizations/{{ organization.id }}/scan">
+      <button class="btn" type="submit">Scan nu</button>
+    </form>
+    <a class="btn secondary" href="/organizations/{{ organization.id }}/edit">Bewerken</a>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Trend (score /100 over tijd)</h3>
+    {{ chart_svg|safe }}
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Scan-historie</h3>
+    {% if scans %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Datum</th><th>Score</th><th>Classificatie</th><th>Trigger</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for scan in scans %}
+        <tr>
+          <td>{{ scan.created_at.strftime("%d-%m-%Y %H:%M") }}</td>
+          <td>{{ scan.total_score }}/100</td>
+          <td><span class="pill {{ scan.classification|pill_class }}">{{ scan.classification }}</span></td>
+          <td>{{ "Handmatig" if scan.triggered_by.value == "manual" else "Automatisch (maandelijks)" }}</td>
+          <td><a href="/scans/{{ scan.id }}">Bekijk rapport →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Nog geen scans uitgevoerd.</div>
+    {% endif %}
+  </div>
+{% endblock %}

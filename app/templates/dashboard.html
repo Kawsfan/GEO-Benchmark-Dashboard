@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — GEO Scan Dashboard{% endblock %}
+{% block content %}
+  <h1 class="page-title">Dashboard</h1>
+  <p class="page-sub">Huidige score, classificatie en trend per organisatie — vergelijking naast elkaar, hoogste score bovenaan.</p>
+
+  <div class="card">
+    {% if rows %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Organisatie</th>
+          <th>Sector</th>
+          <th>Score</th>
+          <th>Classificatie</th>
+          <th>Δ vs. vorige scan</th>
+          <th>Trend</th>
+          <th>Laatste scan</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><a href="/organizations/{{ row.organization.id }}">{{ row.organization.name }}</a><br><span style="color:var(--text-dim); font-size:12px;">{{ row.organization.domain }}</span></td>
+          <td>{{ row.organization.sector or "—" }}</td>
+          <td>
+            {% if row.latest %}<strong>{{ row.latest.total_score }}</strong>/100{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.latest %}<span class="pill {{ row.latest.classification|pill_class }}">{{ row.latest.classification }}</span>{% else %}<span style="color:var(--text-dim);">Nog geen scan</span>{% endif %}
+          </td>
+          <td>
+            {% if row.delta is not none %}
+              {% if row.delta > 0 %}<span class="delta up">▲ {{ row.delta }}</span>
+              {% elif row.delta < 0 %}<span class="delta down">▼ {{ row.delta }}</span>
+              {% else %}<span class="delta flat">– 0.0</span>{% endif %}
+            {% else %}<span style="color:var(--text-dim);">—</span>{% endif %}
+          </td>
+          <td>{% if row.sparkline %}{{ row.sparkline|safe }}{% else %}—{% endif %}</td>
+          <td>{% if row.latest %}{{ row.latest.created_at.strftime("%d-%m-%Y") }}{% else %}—{% endif %}</td>
+          <td>
+            <form class="inline" method="post" action="/organizations/{{ row.organization.id }}/scan">
+              <button class="btn small" type="submit">Scan nu</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">Nog geen organisaties. <a href="/organizations/new">Voeg er een toe</a> om te beginnen.</div>
+    {% endif %}
+  </div>
+{% endblock %}

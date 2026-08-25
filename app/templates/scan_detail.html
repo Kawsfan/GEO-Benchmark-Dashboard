@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Scan {{ scan.created_at.strftime("%d-%m-%Y") }} — {{ organization.name }}{% endblock %}
+{% block content %}
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+    <div>
+      <h1 class="page-title">{{ organization.name }} — scan van {{ scan.created_at.strftime("%d-%m-%Y %H:%M") }}</h1>
+      <p class="page-sub"><a href="/organizations/{{ organization.id }}">← Terug naar organisatie</a></p>
+    </div>
+    <a class="btn secondary" href="/scans/{{ scan.id }}/pdf">Download PDF</a>
+  </div>
+
+  {% if scan.error_message %}
+  <div class="card" style="border-color:#e0a020; background:#fff8e8;">
+    <strong>Let op:</strong> {{ scan.error_message }} Score-criteria die van de paginacontent afhangen (C1, C2, freshness-deel van C10) konden hierdoor niet automatisch gemeten worden en staan op 0.
+  </div>
+  {% endif %}
+
+  <div class="card" style="padding:0; overflow:hidden;">
+    {{ report_html|safe }}
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Handmatige criteria bijwerken</h3>
+    <p class="page-sub" style="margin-bottom:16px;">
+      Deze criteria zijn nog niet geautomatiseerd (Fase 2-4) en worden hier handmatig ingevuld of, zodra beschikbaar,
+      als LLM-schatting overgenomen. Wijzigingen herberekenen direct de totaalscore en classificatie van déze scan.
+    </p>
+    {% if editable_scores %}
+    <form method="post" action="/scans/{{ scan.id }}/manual-scores">
+      <table class="data-table manual-scores-table">
+        <thead>
+          <tr><th>Criterium</th><th>Score (0-10)</th><th>Toelichting</th></tr>
+        </thead>
+        <tbody>
+          {% for cs in editable_scores %}
+          <tr>
+            <td>{{ criteria[cs.code].label }}<br><span style="color:var(--text-dim); font-size:12px;">{{ cs.code }} · huidige bron: {{ cs.source|source_label }}</span></td>
+            <td><input type="number" min="0" max="10" step="0.5" name="{{ cs.code }}" value="{{ cs.raw_score }}"></td>
+            <td><textarea name="{{ cs.code }}_rationale" placeholder="Toelichting / onderbouwing">{{ cs.rationale or "" }}</textarea></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button class="btn" type="submit" style="margin-top:12px;">Scores opslaan &amp; herberekenen</button>
+    </form>
+    {% else %}
+    <div class="empty-state">Alle criteria van deze scan zijn automatisch gemeten.</div>
+    {% endif %}
+  </div>
+{% endblock %}
