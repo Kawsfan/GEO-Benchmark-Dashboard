@@ -20,10 +20,11 @@
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0;">Handmatige criteria bijwerken</h3>
+    <h3 style="margin-top:0;">Criteria controleren / bijwerken</h3>
     <p class="page-sub" style="margin-bottom:16px;">
-      Deze criteria zijn nog niet geautomatiseerd (Fase 2-4) en worden hier handmatig ingevuld of, zodra beschikbaar,
-      als LLM-schatting overgenomen. Wijzigingen herberekenen direct de totaalscore en classificatie van déze scan.
+      C3-C5 zijn een LLM-schatting (Fase 2) als die gelukt is voor deze scan, anders — net als C6-C9 — handmatige
+      invoer. Corrigeer een LLM-schatting of vul een nog lege score in; wijzigingen herberekenen direct de
+      totaalscore en classificatie van déze scan.
     </p>
     {% if editable_scores %}
     <form method="post" action="/scans/{{ scan.id }}/manual-scores">

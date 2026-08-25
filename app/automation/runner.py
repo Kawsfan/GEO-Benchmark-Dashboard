@@ -16,6 +16,7 @@ from app.automation.freshness import analyze_freshness
 from app.automation.http_client import build_client, normalize_domain
 from app.automation.phase0_knockout import run_knockout_check
 from app.automation.structured_data import analyze_structured_data
+from app.automation.text_extraction import extract_visible_text
 from app.scoring import SOURCE_AUTOMATED
 
 
@@ -28,6 +29,9 @@ class AutomatedScanResult:
     criterion_sources: dict[str, str]
     criterion_rationales: dict[str, str]
     fetch_error: str | None = None
+    # Zichtbare pagina-tekst, hergebruikt door de Fase 2 LLM-rubric zodat
+    # die de pagina niet nogmaals hoeft op te halen. None als de fetch faalde.
+    page_text: str | None = None
 
 
 def run_phase1_automation(domain: str) -> AutomatedScanResult:
@@ -50,7 +54,10 @@ def run_phase1_automation(domain: str) -> AutomatedScanResult:
     except httpx.HTTPError as exc:
         fetch_error = f"Kon pagina niet ophalen voor C1/C2/C10-analyse: {exc}"
 
+    page_text: str | None = None
     if html is not None:
+        page_text = extract_visible_text(html)
+
         sd = analyze_structured_data(html)
         criterion_scores["c1_structured_data"] = sd.score
         criterion_sources["c1_structured_data"] = SOURCE_AUTOMATED
@@ -76,4 +83,5 @@ def run_phase1_automation(domain: str) -> AutomatedScanResult:
         criterion_sources=criterion_sources,
         criterion_rationales=criterion_rationales,
         fetch_error=fetch_error,
+        page_text=page_text,
     )

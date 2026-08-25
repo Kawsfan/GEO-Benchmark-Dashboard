@@ -3,11 +3,14 @@ en het resultaat wegschrijven als nieuwe historische rij (nooit overschrijven)."
 
 from __future__ import annotations
 
+import os
+
 from sqlmodel import Session
 
+from app.automation.llm_rubric import assess_llm_criteria
 from app.automation.runner import run_phase1_automation
 from app.models import Organization, Scan, ScanCriterionScore, ScanStatus, ScoreSource, TriggerType, utcnow
-from app.scoring import CRITERIA, SOURCE_MANUAL, classify, compute_score
+from app.scoring import CRITERIA, SOURCE_LLM_ESTIMATE, SOURCE_MANUAL, classify, compute_score
 
 
 def run_scan(
@@ -16,13 +19,19 @@ def run_scan(
     triggered_by: TriggerType = TriggerType.manual,
     manual_scores: dict[str, float] | None = None,
     manual_rationales: dict[str, str] | None = None,
+    run_llm_assessment: bool = True,
 ) -> Scan:
     """Voer een scan uit voor `organization`.
 
     Fase 1-criteria (c1, c2, c10-freshness, + de knock-out) worden altijd
-    automatisch gemeten. Voor de overige criteria wordt `manual_scores`
-    gebruikt indien opgegeven; anders blijft de score 0 (zichtbaar als
-    "handmatig ingevoerd, nog niet ingevuld" in de UI).
+    automatisch gemeten. Fase 2-criteria (c3, c4, c5) worden — als
+    `run_llm_assessment` True is en de pagina-tekst beschikbaar is — via één
+    LLM-call per pagina beoordeeld (zie `app.automation.llm_rubric`); lukt
+    dat niet (geen credentials, rate limit, netwerkfout) dan degradeert de
+    scan gracieus naar de bestaande `manual_scores`/0-fallback voor die
+    criteria. Voor de resterende criteria wordt `manual_scores` gebruikt
+    indien opgegeven; anders blijft de score 0 (zichtbaar als "handmatig
+    ingevoerd, nog niet ingevuld" in de UI).
     """
     manual_scores = manual_scores or {}
     manual_rationales = manual_rationales or {}
@@ -32,6 +41,16 @@ def run_scan(
     merged_scores: dict[str, float] = dict(automated.criterion_scores)
     sources: dict[str, str] = dict(automated.criterion_sources)
     rationales: dict[str, str] = dict(automated.criterion_rationales)
+
+    llm_assessment_disabled = os.environ.get("GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT") == "1"
+    if run_llm_assessment and automated.page_text and not llm_assessment_disabled:
+        llm_result = assess_llm_criteria(automated.page_text, organization.name, organization.domain)
+        if llm_result.succeeded:
+            merged_scores.update(llm_result.scores)
+            sources.update({code: SOURCE_LLM_ESTIMATE for code in llm_result.scores})
+            rationales.update(llm_result.rationales)
+        # Bij een fout (llm_result.error) laten we c3/c4/c5 gewoon over aan
+        # de manual_scores/0-fallback hieronder — geen scan-mislukking.
 
     for code in CRITERIA:
         if code in merged_scores:
@@ -76,7 +95,7 @@ def run_scan(
                 contribution=r.contribution,
                 source=ScoreSource(r.source),
                 rationale=r.rationale,
-                measured_at=now if r.source == "automated" else None,
+                measured_at=now if r.source in ("automated", "llm_estimate") else None,
             )
         )
 

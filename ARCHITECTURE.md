@@ -23,7 +23,16 @@ gemeten, LLM-geschatte en handmatig ingevoerde scores.
   H2/H3-gebruik, lijsten/tabellen.
 - C10 Freshness-deel, geautomatiseerd: `dateModified` (JSON-LD),
   `article:modified_time`, `DCTERMS.modified` uit de pagina parsen.
-- C3, C4, C5, C6, C7, C8, C9, en het **sentiment-deel van C10**: nog niet
+- C3 Answerability, C4 BLUF, C5 Fact density, **Fase 2, geautomatiseerd**:
+  één Claude-call per pagina (`app/automation/llm_rubric.py`), met een vaste
+  beoordelingsprompt die exact de criteriumomschrijving uit `app/scoring.py`
+  gebruikt. Retourneert score 0-10 + korte onderbouwing per criterium,
+  opgeslagen als bron `llm_estimate` met de onderbouwing in `rationale` zodat
+  een mens het op de scan-detailpagina kan controleren/corrigeren. Faalt de
+  LLM-call (geen credentials, rate limit, netwerkfout) dan degradeert de scan
+  gracieus naar de laatst bekende handmatige/LLM-waarde voor die criteria —
+  nooit een mislukte scan.
+- C6, C7, C8, C9, en het **sentiment-deel van C10**: nog niet
   geautomatiseerd. Voor de MVP blijft dit **handmatige JSON/UI-invoer** per
   scan (zelfde patroon als het bestaande script), zodat het dashboard nu al
   bruikbaar is met een compleet rapport.
@@ -39,12 +48,7 @@ gemeten, LLM-geschatte en handmatig ingevoerde scores.
 
 **Bewust doorgeschoven (niet in dit pakket):**
 
-- Fase 2 (LLM-rubric voor C3/C4/C5): vereist een gekozen LLM-provider + API-key
-  en een vaste beoordelingsprompt — een losse vervolgstap zodra dat gekozen is.
-  Het datamodel heeft er al plek voor (`source = llm_estimate` +
-  `rationale`-veld), zodat dit later aangesloten kan worden zonder
-  schema-wijziging.
-- Fase 3 (Wikidata/mentions/social-API's voor C6/C7/C8): idem, vereist
+- Fase 3 (Wikidata/mentions/social-API's voor C6/C7/C8): vereist
   keuzes over welke SEO-/mentions-tool en social-API's.
 - Fase 4 (Share of Model / citatie-tracking, C9): het datamodel bevat al de
   `citation_runs`-tabel en promptset-tabellen, maar de uitvoerende module
@@ -140,7 +144,24 @@ Indexen: `scans(organization_id, created_at)` voor trendlijnen,
 5. Server-rendered templates (Jinja2) hergebruiken de bestaande rapport-CSS/opmaak.
 6. APScheduler-job voor de maandelijkse scan van alle actieve organisaties.
 
-## 4. Bronvermelding in de UI
+## 4. Fase 2 — kosten & configuratie
+
+De LLM-rubric (`app/automation/llm_rubric.py`) roept bij elke scan (handmatig
+of maandelijks-automatisch) één keer Claude aan per organisatie, mits er
+paginatekst beschikbaar is. Dat schaalt dus mee met
+`aantal organisaties × scanfrequentie` — beheersbaar via:
+
+- `ANTHROPIC_API_KEY` (of een `ant auth login`-profiel) moet geconfigureerd
+  zijn; zonder credentials degradeert de scan gracieus naar de laatst bekende
+  handmatige/LLM-waarde voor C3-C5 (geen mislukte scan, geen crash).
+- `GEO_DASHBOARD_LLM_MODEL` — modelkeuze, default `claude-opus-5`. Zet dit
+  naar bv. `claude-sonnet-5` of `claude-haiku-4-5` om de kosten per scan te
+  verlagen bij hoog volume.
+- `GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT=1` — schakelt Fase 2 volledig uit
+  (scans vallen dan terug op puur handmatige invoer voor C3-C5, zoals vóór
+  Fase 2).
+
+## 5. Bronvermelding in de UI
 
 Elke criteriumscore toont een badge:
 

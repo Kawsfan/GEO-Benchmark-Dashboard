@@ -2,6 +2,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import scan_service
+from app.automation.llm_rubric import LLMRubricResult
 from app.automation.runner import AutomatedScanResult
 from app.models import Organization, ScoreSource
 
@@ -14,7 +15,7 @@ def session():
         yield s
 
 
-def _fake_automation(*, crawler_ok=True, ssr_ok=True, c1=7.0, c2=6.0, c10=8.0):
+def _fake_automation(*, crawler_ok=True, ssr_ok=True, c1=7.0, c2=6.0, c10=8.0, page_text=None):
     return AutomatedScanResult(
         crawler_ok=crawler_ok,
         ssr_ok=ssr_ok,
@@ -30,6 +31,7 @@ def _fake_automation(*, crawler_ok=True, ssr_ok=True, c1=7.0, c2=6.0, c10=8.0):
             "c10_sentiment_freshness": "automated",
         },
         criterion_rationales={},
+        page_text=page_text,
     )
 
 
@@ -89,6 +91,73 @@ def test_update_manual_scores_recomputes_total(session, monkeypatch):
     codes = {cs.code: cs for cs in updated.criterion_scores}
     assert codes["c3_answerability"].raw_score == 9.0
     assert codes["c3_answerability"].rationale == "handmatig gecontroleerd"
+
+
+def test_run_scan_merges_successful_llm_assessment(session, monkeypatch):
+    monkeypatch.setattr(
+        scan_service, "run_phase1_automation", lambda domain: _fake_automation(page_text="Pagina-tekst hier.")
+    )
+    monkeypatch.setattr(
+        scan_service,
+        "assess_llm_criteria",
+        lambda page_text, brand, domain: LLMRubricResult(
+            scores={"c3_answerability": 7.0, "c4_bluf": 5.0, "c5_fact_density": 6.0},
+            rationales={"c3_answerability": "goed onderbouwd"},
+        ),
+    )
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    # Handmatig meegegeven c3-waarde mag niet winnen van een geslaagde LLM-beoordeling.
+    scan = scan_service.run_scan(session, org, manual_scores={"c3_answerability": 1.0})
+
+    codes = {cs.code: cs for cs in scan.criterion_scores}
+    assert codes["c3_answerability"].source == ScoreSource.llm_estimate
+    assert codes["c3_answerability"].raw_score == 7.0
+    assert codes["c3_answerability"].rationale == "goed onderbouwd"
+    assert codes["c4_bluf"].source == ScoreSource.llm_estimate
+    assert codes["c4_bluf"].raw_score == 5.0
+
+
+def test_run_scan_falls_back_when_llm_assessment_fails(session, monkeypatch):
+    monkeypatch.setattr(
+        scan_service, "run_phase1_automation", lambda domain: _fake_automation(page_text="Pagina-tekst hier.")
+    )
+    monkeypatch.setattr(
+        scan_service,
+        "assess_llm_criteria",
+        lambda page_text, brand, domain: LLMRubricResult(error="geen credentials"),
+    )
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    scan = scan_service.run_scan(session, org, manual_scores={"c3_answerability": 4.0})
+
+    codes = {cs.code: cs for cs in scan.criterion_scores}
+    assert codes["c3_answerability"].source == ScoreSource.manual
+    assert codes["c3_answerability"].raw_score == 4.0
+
+
+def test_run_scan_skips_llm_assessment_without_page_text(session, monkeypatch):
+    monkeypatch.setattr(scan_service, "run_phase1_automation", lambda domain: _fake_automation(page_text=None))
+    called = {"n": 0}
+
+    def fake_assess(*args, **kwargs):
+        called["n"] += 1
+        return LLMRubricResult(scores={"c3_answerability": 9.0})
+
+    monkeypatch.setattr(scan_service, "assess_llm_criteria", fake_assess)
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    scan_service.run_scan(session, org)
+    assert called["n"] == 0
 
 
 def test_update_manual_scores_never_overwrites_automated(session, monkeypatch):
