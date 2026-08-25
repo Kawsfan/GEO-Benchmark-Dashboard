@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.gitignore
+tests/
+data/*.db
+data/*.db-journal
+*.md
+!README.md
+requirements-dev.txt
+requirements-citation-extra.txt

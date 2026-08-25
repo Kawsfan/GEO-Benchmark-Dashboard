@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -7,9 +8,12 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import configure_auth
 from app.database import init_db
 from app.routers import citations, dashboard, organizations, scans
 from app.scheduler import create_scheduler
+
+logger = logging.getLogger("geo_dashboard.main")
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
@@ -29,6 +33,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="GEO Scan Dashboard", lifespan=lifespan)
+
+if configure_auth(
+    app,
+    username=os.environ.get("GEO_DASHBOARD_AUTH_USERNAME"),
+    password=os.environ.get("GEO_DASHBOARD_AUTH_PASSWORD"),
+):
+    logger.info("HTTP Basic Auth ingeschakeld.")
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 app.include_router(dashboard.router)

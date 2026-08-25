@@ -92,6 +92,19 @@ Zet `GEO_DASHBOARD_DISABLE_SCHEDULER=1` om de in-process maandelijkse
 scheduler uit te schakelen (bv. in tests, of als je liever een externe cron
 gebruikt via `scripts/run_monthly_scan.py`).
 
+### Toegang beveiligen
+
+Er is geen gebruikersbeheer — zet `GEO_DASHBOARD_AUTH_USERNAME` +
+`GEO_DASHBOARD_AUTH_PASSWORD` om het hele dashboard achter één gedeeld
+HTTP-Basic-Auth-wachtwoord te zetten. Zonder die twee (bv. lokale
+ontwikkeling) draait het dashboard onbeveiligd, met een waarschuwing in de
+logs. **Zet dit altijd voordat je een gehost dashboard met anderen deelt.**
+
+## Deployen (bv. om met collega's te delen)
+
+Zie [`DEPLOYMENT.md`](./DEPLOYMENT.md) voor stap-voor-stap Railway-instructies
+— de repo bevat al een `Dockerfile` en `railway.toml`.
+
 ## Tests
 
 ```bash
