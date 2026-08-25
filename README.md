@@ -8,14 +8,15 @@ het oorspronkelijke `geo_report_generator.py`-script.
 Zie [`ARCHITECTURE.md`](./ARCHITECTURE.md) voor de MVP-scope, het
 datamodel en de fasering van de automatisering (Fase 1 t/m 4).
 
-## Wat werkt er nu (Fase 1 + Fase 2)
+## Wat werkt er nu (Fase 1 + Fase 2 + Fase 3)
 
 - Organisaties beheren (toevoegen/bewerken/verwijderen).
 - "Scan nu" per organisatie: voert automatisch de Fase 0 knock-out check,
-  C1 (structured data), C2 (chunkability) en het freshness-deel van C10 uit
-  tegen de live pagina, laat C3/C4/C5 (Answerability, BLUF, Fact density)
-  door Claude beoordelen tegen een vaste rubric, en combineert dat met de
-  laatst ingevulde handmatige scores voor de overige criteria.
+  C1 (structured data), C2 (chunkability), het freshness-deel van C10, C6
+  (Wikidata) en C8 (multimodaal/social-links) uit tegen de live pagina, laat
+  C3/C4/C5 (Answerability, BLUF, Fact density) en C7 (externe vermeldingen,
+  via web-search) door Claude beoordelen, en combineert dat met de laatst
+  ingevulde handmatige scores voor de overige criteria (C9).
 - Maandelijkse automatische scan van alle actieve organisaties
   (in-process via APScheduler, of extern via `scripts/run_monthly_scan.py`).
 - Dashboard-overzicht met score, classificatie, trendlijn en vergelijking
@@ -28,17 +29,19 @@ datamodel en de fasering van de automatisering (Fase 1 t/m 4).
   van díe scan.
 - PDF-export per scan.
 
-Fase 3 (Wikidata/mentions/social-API's) en Fase 4 (Share of Model / citation
-tracking) zijn nog niet geautomatiseerd — zie ARCHITECTURE.md voor waarom en
-wat er al aan datamodel klaarstaat.
+Fase 4 (Share of Model / citation tracking, C9) is nog niet geautomatiseerd
+— zie ARCHITECTURE.md voor waarom en wat er al aan datamodel klaarstaat.
 
-### Fase 2 — Claude-credentials
+### Claude-credentials (Fase 2 + C7)
 
-De LLM-rubric heeft toegang tot de Claude API nodig: zet `ANTHROPIC_API_KEY`,
-of log in met `ant auth login`. Zonder credentials degradeert elke scan
-gracieus (C3-C5 blijven op hun laatst bekende waarde staan, de scan mislukt
-niet). Zie ARCHITECTURE.md § 4 voor kostenbeheersing
-(`GEO_DASHBOARD_LLM_MODEL`, `GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT`).
+De LLM-rubric (C3-C5) en de C7-check hebben toegang tot de Claude API nodig:
+zet `ANTHROPIC_API_KEY`, of log in met `ant auth login`. Zonder credentials
+degradeert elke scan gracieus (die criteria blijven op hun laatst bekende
+waarde staan, de scan mislukt niet) — C6 (Wikidata) en C8
+(multimodaal-heuristiek) hebben geen Claude nodig en blijven gewoon werken.
+Zie ARCHITECTURE.md § 4 voor kostenbeheersing (`GEO_DASHBOARD_LLM_MODEL`,
+`GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT`, `GEO_DASHBOARD_DISABLE_EXTERNAL_MENTIONS`,
+`GEO_DASHBOARD_DISABLE_PHASE3`).
 
 ## Installatie
 

@@ -32,6 +32,9 @@ class AutomatedScanResult:
     # Zichtbare pagina-tekst, hergebruikt door de Fase 2 LLM-rubric zodat
     # die de pagina niet nogmaals hoeft op te halen. None als de fetch faalde.
     page_text: str | None = None
+    # Ruwe HTML, hergebruikt door de Fase 3 C8-multimodaal-check (heeft de
+    # <a href>-links nodig, die page_text niet meer bevat). None als de fetch faalde.
+    html: str | None = None
 
 
 def run_phase1_automation(domain: str) -> AutomatedScanResult:
@@ -84,4 +87,5 @@ def run_phase1_automation(domain: str) -> AutomatedScanResult:
         criterion_rationales=criterion_rationales,
         fetch_error=fetch_error,
         page_text=page_text,
+        html=html,
     )

@@ -3,6 +3,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app import scan_service
 from app.automation.llm_rubric import LLMRubricResult
+from app.automation.phase3_runner import Phase3Result
 from app.automation.runner import AutomatedScanResult
 from app.models import Organization, ScoreSource
 
@@ -13,6 +14,14 @@ def session():
     SQLModel.metadata.create_all(engine)
     with Session(engine) as s:
         yield s
+
+
+@pytest.fixture(autouse=True)
+def _noop_phase3(monkeypatch):
+    """Fase 3 (Wikidata/web-search/multimodaal) doet netwerk-/LLM-calls die
+    hier niets mee te maken hebben — standaard een lege no-op, expliciet
+    overschreven in de tests die Fase 3-gedrag zelf testen."""
+    monkeypatch.setattr(scan_service, "run_phase3_automation", lambda *a, **kw: Phase3Result())
 
 
 def _fake_automation(*, crawler_ok=True, ssr_ok=True, c1=7.0, c2=6.0, c10=8.0, page_text=None):
@@ -157,6 +166,54 @@ def test_run_scan_skips_llm_assessment_without_page_text(session, monkeypatch):
     session.refresh(org)
 
     scan_service.run_scan(session, org)
+    assert called["n"] == 0
+
+
+def test_run_scan_merges_phase3_results(session, monkeypatch):
+    monkeypatch.setattr(scan_service, "run_phase1_automation", lambda domain: _fake_automation())
+    monkeypatch.setattr(
+        scan_service,
+        "run_phase3_automation",
+        lambda brand, domain, html, sector=None: Phase3Result(
+            criterion_scores={"c6_entity_clarity": 6.0, "c8_multimodal": 3.0},
+            criterion_sources={"c6_entity_clarity": "automated", "c8_multimodal": "automated"},
+            criterion_rationales={"c6_entity_clarity": "Wikidata-item gevonden"},
+            errors={"c7_external_mentions": "geen credentials"},
+        ),
+    )
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    # Handmatig meegegeven c6-waarde mag niet winnen van een geslaagde Fase 3-meting.
+    scan = scan_service.run_scan(session, org, manual_scores={"c6_entity_clarity": 1.0, "c7_external_mentions": 4.0})
+
+    codes = {cs.code: cs for cs in scan.criterion_scores}
+    assert codes["c6_entity_clarity"].source == ScoreSource.automated
+    assert codes["c6_entity_clarity"].raw_score == 6.0
+    assert codes["c8_multimodal"].raw_score == 3.0
+    # C7 mislukt in Fase 3 -> valt terug op de handmatige waarde.
+    assert codes["c7_external_mentions"].source == ScoreSource.manual
+    assert codes["c7_external_mentions"].raw_score == 4.0
+    assert "geen credentials" in scan.error_message
+
+
+def test_run_scan_skips_phase3_when_disabled(session, monkeypatch):
+    monkeypatch.setattr(scan_service, "run_phase1_automation", lambda domain: _fake_automation())
+    called = {"n": 0}
+
+    def fake_phase3(*args, **kwargs):
+        called["n"] += 1
+        return Phase3Result()
+
+    monkeypatch.setattr(scan_service, "run_phase3_automation", fake_phase3)
+    org = Organization(name="Voorbeeld", domain="voorbeeld.nl")
+    session.add(org)
+    session.commit()
+    session.refresh(org)
+
+    scan_service.run_scan(session, org, run_phase3=False)
     assert called["n"] == 0
 
 

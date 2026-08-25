@@ -32,10 +32,29 @@ gemeten, LLM-geschatte en handmatig ingevoerde scores.
   LLM-call (geen credentials, rate limit, netwerkfout) dan degradeert de scan
   gracieus naar de laatst bekende handmatige/LLM-waarde voor die criteria —
   nooit een mislukte scan.
-- C6, C7, C8, C9, en het **sentiment-deel van C10**: nog niet
-  geautomatiseerd. Voor de MVP blijft dit **handmatige JSON/UI-invoer** per
-  scan (zelfde patroon als het bestaande script), zodat het dashboard nu al
-  bruikbaar is met een compleet rapport.
+- C6 Entity clarity, **Fase 3, geautomatiseerd**: publieke Wikidata-API
+  (`app/automation/entity_clarity.py`, geen API-key nodig). Zoekt een item op
+  merknaam; een confidente match wordt gemaakt via het officiële-website-
+  attribuut (P856) tegen het scan-domein, anders valt de check terug op het
+  eerste zoekresultaat als onzekere kandidaat (lagere score, expliciet
+  gemarkeerd in de rationale). Score = aanwezigheid/confidence + volledigheid
+  van kernattributen (oprichtingsdatum, land, hoofdkantoor, branche, website,
+  logo).
+- C7 External mentions, **Fase 3, geautomatiseerd**: één Claude-call met de
+  server-side `web_search`-tool (`app/automation/external_mentions.py`) zoekt
+  zelf naar recente vermeldingen in onafhankelijke bronnen en beoordeelt
+  aantal + kwaliteit tegen dezelfde 0-10-schaal. Enige Fase 3-check met
+  doorlopende externe kosten per scan (Claude + web-search) — zie sectie 4.
+- C8 Multimodaal, **Fase 3, geautomatiseerd**: heuristiek
+  (`app/automation/multimodal.py`) op links naar bekende video-/social-/
+  reviewplatformen (YouTube, Instagram, TikTok, Facebook, LinkedIn,
+  X/Twitter, Trustpilot) in de al opgehaalde homepage-HTML — geen extra
+  request. Meet alleen link-aanwezigheid, niet daadwerkelijke activiteit
+  (dat vereist per-platform OAuth/API-toegang, buiten scope).
+- C9, en het **sentiment-deel van C10**: nog niet geautomatiseerd. Voor de
+  MVP blijft dit **handmatige JSON/UI-invoer** per scan (zelfde patroon als
+  het bestaande script), zodat het dashboard nu al bruikbaar is met een
+  compleet rapport.
 - Dashboard-overzicht: huidige score + classificatie + trendlijn per
   organisatie, en een vergelijkingsview van meerdere organisaties naast elkaar.
 - Detailrapport per scan: score-breakdown per pijler/criterium, GAP-analyse,
@@ -48,8 +67,6 @@ gemeten, LLM-geschatte en handmatig ingevoerde scores.
 
 **Bewust doorgeschoven (niet in dit pakket):**
 
-- Fase 3 (Wikidata/mentions/social-API's voor C6/C7/C8): vereist
-  keuzes over welke SEO-/mentions-tool en social-API's.
 - Fase 4 (Share of Model / citatie-tracking, C9): het datamodel bevat al de
   `citation_runs`-tabel en promptset-tabellen, maar de uitvoerende module
   (provider-calls, kostenlimiet per organisatie) is nog niet gebouwd — dat is
@@ -144,22 +161,36 @@ Indexen: `scans(organization_id, created_at)` voor trendlijnen,
 5. Server-rendered templates (Jinja2) hergebruiken de bestaande rapport-CSS/opmaak.
 6. APScheduler-job voor de maandelijkse scan van alle actieve organisaties.
 
-## 4. Fase 2 — kosten & configuratie
+## 4. Fase 2/3 — kosten & configuratie
 
-De LLM-rubric (`app/automation/llm_rubric.py`) roept bij elke scan (handmatig
-of maandelijks-automatisch) één keer Claude aan per organisatie, mits er
-paginatekst beschikbaar is. Dat schaalt dus mee met
+Twee checks roepen Claude aan bij elke scan (handmatig of
+maandelijks-automatisch), mits de vereiste input beschikbaar is: de Fase
+2-rubric (`app/automation/llm_rubric.py`, paginatekst nodig) en de Fase
+3-C7-check (`app/automation/external_mentions.py`, gebruikt de
+`web_search`-tool). Dat schaalt dus mee met
 `aantal organisaties × scanfrequentie` — beheersbaar via:
 
 - `ANTHROPIC_API_KEY` (of een `ant auth login`-profiel) moet geconfigureerd
-  zijn; zonder credentials degradeert de scan gracieus naar de laatst bekende
-  handmatige/LLM-waarde voor C3-C5 (geen mislukte scan, geen crash).
-- `GEO_DASHBOARD_LLM_MODEL` — modelkeuze, default `claude-opus-5`. Zet dit
-  naar bv. `claude-sonnet-5` of `claude-haiku-4-5` om de kosten per scan te
-  verlagen bij hoog volume.
-- `GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT=1` — schakelt Fase 2 volledig uit
-  (scans vallen dan terug op puur handmatige invoer voor C3-C5, zoals vóór
-  Fase 2).
+  zijn; zonder credentials degradeert elke scan gracieus naar de laatst
+  bekende handmatige/LLM-waarde voor de betreffende criteria (geen mislukte
+  scan, geen crash) — C6 (Wikidata) en C8 (multimodaal-heuristiek) maken geen
+  API-kosten en blijven gewoon draaien.
+- `GEO_DASHBOARD_LLM_MODEL` — modelkeuze voor zowel Fase 2 als C7, default
+  `claude-opus-5`. Zet dit naar bv. `claude-sonnet-5` of `claude-haiku-4-5`
+  om de kosten per scan te verlagen bij hoog volume.
+- `GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT=1` — schakelt Fase 2 (C3-C5) uit.
+- `GEO_DASHBOARD_DISABLE_EXTERNAL_MENTIONS=1` — schakelt alleen C7 uit (de
+  enige Fase 3-check met externe kosten); C6/C8 blijven actief.
+- `GEO_DASHBOARD_DISABLE_PHASE3=1` — schakelt C6, C7 én C8 in één keer uit.
+
+**Ontwerpkeuze C7**: de bouwprompt noemt zowel "een SEO-tool met
+backlink-/mentions-data" als "periodieke gerichte web-search-queries" als
+optie. Dit pakket implementeert de tweede optie via Claude's server-side
+`web_search`-tool — geen losse SEO-tool-integratie/API-key nodig, wel
+onderhevig aan de nauwkeurigheid van wat een web-search-doorsnede oplevert.
+Een SEO-tool-koppeling kan later als alternatieve/aanvullende bron naast
+`assess_external_mentions()` toegevoegd worden zonder het datamodel te
+wijzigen (zelfde `llm_estimate`/`rationale`-opslag).
 
 ## 5. Bronvermelding in de UI
 
