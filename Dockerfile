@@ -3,15 +3,22 @@ FROM python:3.11-slim
 
 # Runtime-libraries die WeasyPrint (PDF-export) nodig heeft — zonder deze
 # faalt alleen de PDF-download, maar liever meteen goed geregeld.
+#
+# libgdk-pixbuf is apart gezet met een fallback: Debian hernoemde dit pakket
+# van libgdk-pixbuf2.0-0 naar libgdk-pixbuf-2.0-0 (extra streepje) rond
+# trixie (Debian 13), waar python:3.11-slim nu op draait. De ||-fallback
+# houdt de build werkend, ongeacht welke Debian-versie de basis-image net
+# gebruikt.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libpangoft2-1.0-0 \
-    libgdk-pixbuf2.0-0 \
     libcairo2 \
     libffi8 \
     shared-mime-info \
     fonts-liberation \
+    && (apt-get install -y --no-install-recommends libgdk-pixbuf-2.0-0 \
+        || apt-get install -y --no-install-recommends libgdk-pixbuf2.0-0) \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
