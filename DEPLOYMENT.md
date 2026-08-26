@@ -59,6 +59,26 @@ handmatige waarde staan.
 `PORT` hoef je niet zelf te zetten — Railway doet dat automatisch en de
 `Dockerfile` luistert daar al naar.
 
+### Kostenvrije modus (geen Anthropic API-key)
+
+Heb je (nog) geen `ANTHROPIC_API_KEY`? Zet dan expliciet:
+
+| Variabele | Waarde |
+|---|---|
+| `GEO_DASHBOARD_DISABLE_LLM_ASSESSMENT` | `1` |
+| `GEO_DASHBOARD_DISABLE_EXTERNAL_MENTIONS` | `1` |
+| `GEO_DASHBOARD_DISABLE_CITATION_TRACKING` | `1` |
+
+Dit schakelt alleen de Claude-onderdelen uit (C3-C5 Answerability/BLUF/Fact
+density, C7 externe vermeldingen, C9 Share of Model — die worden dan gewoon
+handmatig ingevoerd, zoals in het oorspronkelijke script). Alles wat al
+gratis is blijft gewoon draaien: C1/C2/C10-freshness, de Fase 0 knock-out
+check, C6 (Wikidata) en C8 (social-media-links). Zonder een geconfigureerde
+key zou dit sowieso al niks kosten (de checks slaan gewoon over), maar deze
+drie vlaggen zijn een expliciete, harde "uit"-stand — ook als er later per
+ongeluk toch een key ergens terechtkomt. Verwijder de drie variabelen (of
+zet op `0`) zodra je een key hebt en de LLM-onderdelen wilt gebruiken.
+
 ## 4. Deploy
 
 Na het instellen van de variabelen en het volume: **Deploy** (of push een
