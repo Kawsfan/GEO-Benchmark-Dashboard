@@ -15,7 +15,12 @@ from __future__ import annotations
 from app.scoring import CRITERIA, PILLAR_ORDER, SOURCE_LABELS, ScoreReport
 
 REPORT_CSS = """
-:root {
+/* Bewust op .geo-report gedefinieerd, niet op :root: dit fragment wordt op
+   de scan-detailpagina ingebed náást app.css (dat zijn eigen --bg/--panel/
+   ...-variabelen op :root zet voor het lichte dashboard-thema). Custom
+   properties op :root zouden die globaal overschrijven en de rest van de
+   pagina (nav, kaarten, tabellen) meeslepen in het donkere rapport-thema. */
+.geo-report {
   --bg: #0f1115;
   --panel: #171a21;
   --panel-2: #1e222b;

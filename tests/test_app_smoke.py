@@ -73,6 +73,10 @@ def test_full_flow_create_scan_view_and_pdf(client):
     assert resp.status_code == 200
     assert "Automatisch gemeten" in resp.text
     assert "Handmatig ingevoerd" in resp.text
+    # Regressie: de rapport-CSS moet daadwerkelijk op de pagina staan, niet
+    # alleen in de PDF-export (zie tests/test_report_html.py).
+    assert ".geo-report {" in resp.text
+    assert ":root {" not in resp.text  # zou het lichte dashboard-thema overschrijven
 
     resp = client.get("/dashboard")
     assert "Test BV" in resp.text

@@ -7,7 +7,7 @@ from sqlmodel import Session
 from app.database import get_session
 from app.models import Scan, ScoreSource
 from app.pdf import render_scan_pdf
-from app.report_html import render_report_body
+from app.report_html import render_report_body, render_report_css
 from app.report_view import build_report_from_scan
 from app.scan_service import update_manual_scores
 from app.scoring import CRITERIA
@@ -26,6 +26,7 @@ def scan_detail(scan_id: int, request: Request, session: Session = Depends(get_s
     report = build_report_from_scan(scan)
     generated_at = scan.created_at.strftime("%d-%m-%Y %H:%M")
     report_html = render_report_body(report, org.name, org.domain, generated_at)
+    report_css = render_report_css(report)
 
     editable = [
         cs for cs in sorted(scan.criterion_scores, key=lambda c: list(CRITERIA.keys()).index(c.code))
@@ -39,6 +40,7 @@ def scan_detail(scan_id: int, request: Request, session: Session = Depends(get_s
             "scan": scan,
             "organization": org,
             "report_html": report_html,
+            "report_css": report_css,
             "editable_scores": editable,
             "criteria": CRITERIA,
         },
